@@ -208,7 +208,7 @@ pub const NodeConn = struct {
             }
         }
 
-        log.err("Timed out waiting to connect to {s}", .{target_endpoint});
+        log.warn("Timed out waiting to connect to {s}", .{target_endpoint});
         return error.ConnectTimeout;
     }
 
@@ -294,17 +294,21 @@ const TxEntryRaw = struct {
     fee: u64,
 };
 
+fn parseHash(input: []const u8) !common.Hash {
+    if (input.len != common.hash_size * 2) return error.InvalidHashLength;
+    var hash: common.Hash = undefined;
+    _ = try std.fmt.hexToBytes(&hash, input);
+    return hash;
+}
+
 fn parseMinerData(allocator: Allocator, json_data: []const u8) !MinerData {
     const parsed = try std.json.parseFromSlice(MinerDataRaw, allocator, json_data, .{
         .ignore_unknown_fields = true,
     });
     defer parsed.deinit();
 
-    var prev_id: common.Hash = undefined;
-    _ = try std.fmt.hexToBytes(&prev_id, parsed.value.prev_id);
-
-    var seed_hash: common.Hash = undefined;
-    _ = try std.fmt.hexToBytes(&seed_hash, parsed.value.seed_hash);
+    const prev_id = try parseHash(parsed.value.prev_id);
+    const seed_hash = try parseHash(parsed.value.seed_hash);
 
     const difficulty = try std.fmt.parseInt(common.Difficulty, parsed.value.difficulty, 0);
 
@@ -314,10 +318,8 @@ fn parseMinerData(allocator: Allocator, json_data: []const u8) !MinerData {
     errdefer allocator.free(tx_backlog);
 
     for (parsed.value.tx_backlog, tx_backlog) |raw, *entry| {
-        var txid: common.Hash = undefined;
-        _ = try std.fmt.hexToBytes(&txid, raw.id);
         entry.* = .{
-            .id = txid,
+            .id = try parseHash(raw.id),
             .blob_size = @intCast(raw.blob_size),
             .weight = raw.weight,
             .fee = raw.fee,
