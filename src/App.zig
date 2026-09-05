@@ -66,6 +66,7 @@ fn runNode(self: *App) !void {
 
     while (true) {
         const data = self.node.receive() catch |err| {
+            if (err == error.Stopped) return;
             log.err("Failed to receive miner data: {t}", .{err});
             continue;
         };
