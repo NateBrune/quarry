@@ -18,11 +18,13 @@ quarry --pool 127.0.0.1:3333
 
 Options:
 
-- `--threads N`: mining threads (default: one per CPU)
+- `--threads N`: mining threads (default: one per 2 MiB of L3 cache, which is what RandomX needs
+  per thread; more threads than that add little)
 - `--light`: RandomX light mode, using 256 MiB instead of ~2.3 GiB, but much slower
 - `--user NAME`: worker name shown by P2Pool; `NAME+DIFF` requests a fixed share difficulty
 
-Build with `zig build --release=fast` for full hashing speed. Mining needs an x86-64 CPU with
+Build with `zig build --release=fast` for full hashing speed (release builds use LLVM; the
+self-hosted backend's code hashes about 5x slower). Mining needs an x86-64 CPU with
 AES-NI.
 
 ## Documentation

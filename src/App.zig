@@ -79,8 +79,8 @@ pub fn run(self: *App) !void {
 }
 
 fn runMiner(self: *App, pool: Config.Pool) !void {
-    const threads = if (self.config.threads != 0) self.config.threads else std.Thread.getCpuCount() catch 1;
-    log.info("Starting {d} mining threads in {s} mode", .{ threads, if (self.config.light) "light" else "fast" });
+    const threads = if (self.config.threads != 0) self.config.threads else Miner.defaultThreadCount(self.io);
+    log.info("Starting {d} mining thread{s} in {s} mode", .{ threads, if (threads == 1) "" else "s", if (self.config.light) "light" else "fast" });
     self.miner = try Miner.create(self.allocator, self.io, .{
         .threads = threads,
         .mode = if (self.config.light) .light else .fast,

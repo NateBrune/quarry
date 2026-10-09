@@ -142,6 +142,54 @@ pub fn pause(self: *Miner) void {
     self.active.store(false, .release);
 }
 
+/// Bytes of L3 cache each mining thread needs for its RandomX scratchpad.
+const l3_per_thread = 2 * 1024 * 1024;
+
+/// Default number of mining threads: as many as the L3 cache holds scratchpads for (like XMRig),
+/// at most one per CPU. Threads beyond that evict each other's scratchpads and add little.
+pub fn defaultThreadCount(io: Io) usize {
+    const cpus = std.Thread.getCpuCount() catch 1;
+    const l3 = totalL3Size(io, cpus) catch return cpus;
+    return std.math.clamp(l3 / l3_per_thread, 1, cpus);
+}
+
+/// Sums the sizes of the distinct L3 caches on Linux, from sysfs.
+fn totalL3Size(io: Io, cpus: usize) !usize {
+    var seen_ids: [64]u32 = undefined;
+    var seen: usize = 0;
+    var total: usize = 0;
+    for (0..cpus) |cpu| {
+        var path_buf: [96]u8 = undefined;
+        var buf: [32]u8 = undefined;
+
+        const id_path = try std.fmt.bufPrint(&path_buf, "/sys/devices/system/cpu/cpu{d}/cache/index3/id", .{cpu});
+        const id_text = try Io.Dir.cwd().readFile(io, id_path, &buf);
+        const id = try std.fmt.parseInt(u32, std.mem.trim(u8, id_text, " \n"), 10);
+        if (std.mem.indexOfScalar(u32, seen_ids[0..seen], id) != null) continue;
+        if (seen == seen_ids.len) break;
+        seen_ids[seen] = id;
+        seen += 1;
+
+        const size_path = try std.fmt.bufPrint(&path_buf, "/sys/devices/system/cpu/cpu{d}/cache/index3/size", .{cpu});
+        total += try parseCacheSize(try Io.Dir.cwd().readFile(io, size_path, &buf));
+    }
+    if (total == 0) return error.NoL3Cache;
+    return total;
+}
+
+/// Parses a sysfs cache size such as "3072K" or "32M".
+fn parseCacheSize(text: []const u8) !usize {
+    const t = std.mem.trim(u8, text, " \n");
+    if (t.len == 0) return error.InvalidCacheSize;
+    const unit: usize = switch (t[t.len - 1]) {
+        'K' => 1024,
+        'M' => 1024 * 1024,
+        else => 1,
+    };
+    const digits = if (unit == 1) t else t[0 .. t.len - 1];
+    return try std.fmt.parseInt(usize, digits, 10) * unit;
+}
+
 /// Total hashes computed since the miner started.
 pub fn hashCount(self: *const Miner) u64 {
     return self.hashes.load(.monotonic);
@@ -208,6 +256,13 @@ fn createVm(self: *Miner, algo: protocol.Algo) !*randomx.Vm {
 }
 
 const testing = std.testing;
+
+test "parse cache size" {
+    try testing.expectEqual(3 * 1024 * 1024, try parseCacheSize("3072K\n"));
+    try testing.expectEqual(32 * 1024 * 1024, try parseCacheSize("32M"));
+    try testing.expectEqual(512, try parseCacheSize("512"));
+    try testing.expectError(error.InvalidCacheSize, parseCacheSize("\n"));
+}
 
 /// Records the first share reported by a miner.
 const TestShares = struct {

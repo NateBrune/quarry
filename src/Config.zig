@@ -28,7 +28,7 @@ wallet: Wallet = .{},
 pool: ?Pool = null,
 /// Worker name sent at login; P2Pool also accepts "name+difficulty" for a fixed share difficulty.
 user: []const u8 = "quarry",
-/// Mining threads; 0 means one per CPU.
+/// Mining threads; 0 means as many as the L3 cache fits (see `Miner.defaultThreadCount`).
 threads: u32 = 0,
 /// Mine in RandomX light mode (256 MiB) instead of fast mode (~2.3 GiB).
 light: bool = false,
@@ -164,7 +164,7 @@ fn exitHelp() noreturn {
         \\
         \\  --pool                  Mine on a P2Pool stratum server (host:port, e.g. 127.0.0.1:3333)
         \\  --user                  Worker name to log in with (default: quarry)
-        \\  --threads               Number of mining threads (default: one per CPU)
+        \\  --threads               Number of mining threads (default: L3 cache size / 2 MiB)
         \\  --light                 Use RandomX light mode (256 MiB instead of ~2.3 GiB, much slower)
         \\
         \\  --node                  IP address of Monero node
