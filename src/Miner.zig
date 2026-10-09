@@ -51,6 +51,8 @@ lock: Io.RwLock,
 job: Job,
 /// Incremented on every new job; 0 means no job yet.
 job_generation: std.atomic.Value(u64),
+/// False while there is no job to mine (before the first job, or after `pause`).
+active: std.atomic.Value(bool),
 stopping: std.atomic.Value(bool),
 hashes: std.atomic.Value(u64),
 
@@ -81,6 +83,7 @@ pub fn create(gpa: Allocator, io: Io, options: Options, on_share: ShareFn, share
         .lock = .init,
         .job = undefined,
         .job_generation = .init(0),
+        .active = .init(false),
         .stopping = .init(false),
         .hashes = .init(0),
         .workers = &.{},
@@ -128,6 +131,15 @@ pub fn setJob(self: *Miner, job: *const Job) !void {
 
     self.job = job.*;
     _ = self.job_generation.fetchAdd(1, .release);
+    self.active.store(true, .release);
+}
+
+/// Stops hashing until the next `setJob`, e.g. while disconnected from the pool. When this
+/// returns, no worker is still hashing (or reporting shares for) the previous job.
+pub fn pause(self: *Miner) void {
+    self.lock.lockUncancelable(self.io);
+    defer self.lock.unlock(self.io);
+    self.active.store(false, .release);
 }
 
 /// Total hashes computed since the miner started.
@@ -145,13 +157,15 @@ fn workerMain(self: *Miner, index: u32, stride: u32) void {
     var nonce: u32 = 0;
 
     while (!self.stopping.load(.acquire)) {
-        if (self.job_generation.load(.acquire) == 0) {
+        if (!self.active.load(.acquire)) {
             Io.sleep(self.io, .fromMilliseconds(50), .awake) catch {};
             continue;
         }
 
         self.lock.lockSharedUncancelable(self.io);
         defer self.lock.unlockShared(self.io);
+        // Paused between the check above and taking the lock.
+        if (!self.active.load(.acquire)) continue;
 
         const current = self.job_generation.load(.acquire);
         if (current != generation) {
