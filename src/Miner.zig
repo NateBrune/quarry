@@ -124,7 +124,8 @@ pub fn setJob(self: *Miner, job: *const Job) !void {
         const clock: Io.Clock = .awake;
         const start = clock.now(self.io);
         self.cache.init(&job.seed_hash);
-        if (self.dataset) |ds| try ds.init(self.cache, self.options.threads);
+        // Use every CPU: dataset initialization isn't limited by L3 the way hashing is.
+        if (self.dataset) |ds| try ds.init(self.cache, std.Thread.getCpuCount() catch self.options.threads);
         self.seed = job.seed_hash;
         log.info("RandomX ready in {d} ms", .{start.durationTo(clock.now(self.io)).toMilliseconds()});
     }
