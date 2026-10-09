@@ -66,8 +66,21 @@ use; plan for ~75 GB, growing ~10 GB per year):
 
 ### 2. P2Pool node
 
-Build P2Pool from source (Fedora shown; see its
-[build instructions](https://github.com/SChernykh/p2pool#build-instructions) for others):
+Download the latest `linux-x64` release from
+[GitHub](https://github.com/SChernykh/p2pool/releases) along with `sha256sums.txt.asc`, and check
+it against SChernykh's signature (key `1FCA AB4D 3DC3 310D 16CB D508 C47F 82B5 4DA8 7ADF`):
+
+```bash
+curl -sSL https://keys.openpgp.org/vks/v1/by-fingerprint/1FCAAB4D3DC3310D16CBD508C47F82B54DA87ADF | gpg --import
+gpg --verify sha256sums.txt.asc                  # "Good signature from SChernykh"
+sha256sum p2pool-v*-linux-x64.tar.gz             # must match the SHA256 listed for it
+tar xzf p2pool-v*-linux-x64.tar.gz
+```
+
+Or build it from source (Fedora shown; see its
+[build instructions](https://github.com/SChernykh/p2pool#build-instructions) for others). The
+gRPC dependency, needed only for Tari merge mining, makes this take a while; `cmake
+-DWITH_GRPC=OFF ..` skips it:
 
 ```bash
 sudo dnf install git cmake gcc-c++ libuv-devel zeromq-devel libsodium-devel openpgm-devel libcurl-devel
