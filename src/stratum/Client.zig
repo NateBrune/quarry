@@ -31,9 +31,8 @@ write_lock: Io.Mutex,
 session_id: protocol.Id,
 next_request_id: std.atomic.Value(u64),
 
-/// Connects to `host:port` and logs in with `wallet` as the payout address. Returns the client
-/// and the first job.
-pub fn connect(gpa: Allocator, io: Io, host: []const u8, port: u16, wallet: []const u8, agent: []const u8) !struct { *Client, protocol.Job } {
+/// Connects to `host:port` and logs in as worker `login`. Returns the client and the first job.
+pub fn connect(gpa: Allocator, io: Io, host: []const u8, port: u16, login: []const u8, agent: []const u8) !struct { *Client, protocol.Job } {
     const stream = try connectStream(io, host, port);
     errdefer stream.close(io);
 
@@ -56,14 +55,14 @@ pub fn connect(gpa: Allocator, io: Io, host: []const u8, port: u16, wallet: []co
     self.writer = stream.writer(io, &self.write_buf);
 
     const login_id = self.requestId();
-    try self.send(protocol.writeLogin, .{ login_id, wallet, agent });
+    try self.send(protocol.writeLogin, .{ login_id, login, agent });
 
     // The pool answers the login with the first job; nothing else is sent before it.
     switch (try self.next()) {
-        .login => |login| {
-            if (login.request_id != login_id) return error.UnexpectedResponse;
-            self.session_id = login.session_id;
-            return .{ self, login.job };
+        .login => |ok| {
+            if (ok.request_id != login_id) return error.UnexpectedResponse;
+            self.session_id = ok.session_id;
+            return .{ self, ok.job };
         },
         .response => |r| {
             if (r.err) |e| log.err("Login rejected: {s}", .{e.slice()});

@@ -201,13 +201,14 @@ fn jobFromValue(arena: Allocator, value: std.json.Value) !Job {
     return job;
 }
 
-/// Writes a `login` request. `wallet` is the payout address P2Pool mines to.
-pub fn writeLogin(w: *Writer, request_id: u64, wallet: []const u8, agent: []const u8) !void {
+/// Writes a `login` request. P2Pool treats `login` as a worker name (optionally "name+diff"):
+/// payouts go to the wallet P2Pool itself was started with.
+pub fn writeLogin(w: *Writer, request_id: u64, login: []const u8, agent: []const u8) !void {
     try std.json.Stringify.value(.{
         .id = request_id,
         .jsonrpc = "2.0",
         .method = "login",
-        .params = .{ .login = wallet, .pass = "x", .agent = agent, .algo = supported_algos },
+        .params = .{ .login = login, .pass = "x", .agent = agent, .algo = supported_algos },
     }, .{}, w);
     try w.writeByte('\n');
 }
