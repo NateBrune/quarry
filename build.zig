@@ -38,9 +38,10 @@ pub fn build(b: *std.Build) void {
                 .{ .name = "build.zig.zon", .module = build_zig_zon },
             },
         }),
-        // Use LLVM by default. Zig's self-hosted codegen may have some issues
-        .use_llvm = use_llvm orelse false,
-        .use_lld = use_llvm orelse false,
+        // Use LLVM for release builds: the self-hosted backend builds faster, but its code hashes
+        // RandomX several times slower (AES and BLAKE2b over the scratchpad on every hash).
+        .use_llvm = use_llvm orelse (optimize != .Debug),
+        .use_lld = use_llvm orelse (optimize != .Debug),
     });
     quarry.root_module.linkSystemLibrary("libzmq", .{ .preferred_link_mode = .static });
     b.installArtifact(quarry);
