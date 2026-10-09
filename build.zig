@@ -10,6 +10,7 @@ pub fn build(b: *std.Build) void {
     // Define custom build options/directives
     const use_llvm = b.option(bool, "use-llvm", "Use LLVM backend for Zig codegen");
     const fmt_check = b.option(bool, "fmt-check", "Check formatting of source files");
+    const test_filters = b.option([]const []const u8, "test-filter", "Only run tests whose names contain this text") orelse &.{};
 
     // Embed the build.zig.zon file to access version info
     const build_zig_zon = b.createModule(.{
@@ -53,7 +54,7 @@ pub fn build(b: *std.Build) void {
         run_cmd.addArgs(args);
     }
 
-    const quarry_tests = b.addTest(.{ .root_module = quarry.root_module });
+    const quarry_tests = b.addTest(.{ .root_module = quarry.root_module, .filters = test_filters });
     const run_quarry_tests = b.addRunArtifact(quarry_tests);
 
     const test_step = b.step("test", "Run tests");
