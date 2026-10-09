@@ -18,12 +18,11 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
-    // RandomX is compiled as a separate unit
-    const randomx = b.addModule("randomx", .{
-        .root_source_file = b.path("src/randomx/root.zig"),
+    // RandomX comes from zig-randomx (x86-64 JIT and interpreter, v1 and v2)
+    const randomx = b.dependency("randomx", .{
         .target = target,
         .optimize = optimize,
-    });
+    }).module("randomx");
 
     const quarry = b.addExecutable(.{
         .name = "quarry",
@@ -54,14 +53,10 @@ pub fn build(b: *std.Build) void {
         run_cmd.addArgs(args);
     }
 
-    const randomx_tests = b.addTest(.{ .root_module = randomx });
-    const run_randomx_tests = b.addRunArtifact(randomx_tests);
-
     const quarry_tests = b.addTest(.{ .root_module = quarry.root_module });
     const run_quarry_tests = b.addRunArtifact(quarry_tests);
 
     const test_step = b.step("test", "Run tests");
-    test_step.dependOn(&run_randomx_tests.step);
     test_step.dependOn(&run_quarry_tests.step);
 
     // Custom directive to check and format source files
