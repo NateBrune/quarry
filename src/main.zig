@@ -48,4 +48,5 @@ test {
     _ = @import("net/peer_list.zig");
     _ = @import("stratum/protocol.zig");
     _ = @import("stratum/Client.zig");
+    _ = @import("Miner.zig");
 }
